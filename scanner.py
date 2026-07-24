@@ -4,7 +4,7 @@ from datetime import datetime
 
 BASE_URL = "https://api.toobit.com"
 TELEGRAM_TOKEN = "8654570303:AAHPSBcwQHjQUnHy8WPbk2MKf6vZlxPsQCY"
-CHAT_ID = "8654570303"
+CHAT_ID = "352983321"
 
 def get_symbols():
     url = BASE_URL + "/api/v1/futures/market"
