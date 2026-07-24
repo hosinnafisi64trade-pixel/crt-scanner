@@ -2,7 +2,6 @@ import requests
 
 BASE_URL = "https://api.toobit.com"
 
-print("CRT Scanner Started")
 
 def get_symbols():
     url = BASE_URL + "/api/v1/futures/market/contracts"
@@ -10,16 +9,23 @@ def get_symbols():
     data = r.json()
 
     symbols = []
-
-    for item in data["data"]:
-        symbols.append(item["symbol"])
+    if "data" in data:
+        for item in data["data"]:
+            symbols.append(item["symbol"])
 
     return symbols
 
 
-symbols = get_symbols()
+def scan():
+    symbols = get_symbols()
 
-print(f"Found {len(symbols)} symbols")
+    print(f"Found {len(symbols)} symbols")
 
-for symbol in symbols:
-    print(symbol)
+    for symbol in symbols:
+        print("Scanning:", symbol)
+
+    print("Scan Finished")
+
+
+if __name__ == "__main__":
+    scan()
