@@ -1,20 +1,21 @@
 import requests
-import time
-
-print("CRT Scanner Started")
 
 BASE_URL = "https://api.toobit.com"
 
+print("CRT Scanner Started")
+
 def get_symbols():
-    url = BASE_URL + "/api/v1/futures/market/tickers"
+    url = BASE_URL + "/api/v1/futures/market/contracts"
     r = requests.get(url, timeout=10)
     data = r.json()
 
     symbols = []
+
     for item in data["data"]:
         symbols.append(item["symbol"])
 
     return symbols
+
 
 symbols = get_symbols()
 
