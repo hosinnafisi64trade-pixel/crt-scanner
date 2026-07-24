@@ -2,7 +2,7 @@ name: CRT Scanner
 
 on:
   schedule:
-    - cron: "10 0 * * *"
+    - cron: '10 0 * * *'
   workflow_dispatch:
 
 jobs:
@@ -19,9 +19,7 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: |
-          pip install requests
+        run: pip install requests
 
-      - name: Run scanner
-        run: |
-          python scanner.py
+      - name: Run Scanner
+        run: python scanner.py
