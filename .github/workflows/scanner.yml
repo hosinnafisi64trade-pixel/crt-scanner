@@ -2,6 +2,7 @@ name: CRT Scanner
 
 on:
   schedule:
+    # اجرا هر روز ساعت 00:10 UTC (معادل 3:40 ایران، دقیقاً 10 دقیقه بعد از بسته شدن کندل روزانه)
     - cron: '10 0 * * *'
   workflow_dispatch:
 
