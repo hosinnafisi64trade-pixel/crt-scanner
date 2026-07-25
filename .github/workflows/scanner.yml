@@ -2,7 +2,7 @@ name: CRT Scanner
 
 on:
   schedule:
-    # اجرا هر روز ساعت 00:10 UTC (معادل 3:40 ایران، دقیقاً 10 دقیقه بعد از بسته شدن کندل روزانه)
+    # اجرا هر روز ساعت 00:10 UTC
     - cron: '10 0 * * *'
   workflow_dispatch:
 
@@ -20,7 +20,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install requests
+        run: |
+          pip install requests
+          pip install python-telegram-bot==13.7
 
       - name: Run Scanner
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
         run: python scanner.py
