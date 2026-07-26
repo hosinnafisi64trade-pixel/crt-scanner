@@ -10,7 +10,7 @@ CHAT_ID = os.getenv("CHAT_ID")
 
 
 def get_symbols():
-    url = BASE_URL + "/api/v1/futures/market"
+    url = BASE_URL + "/api/v1/futures/public/symbols"   # ← خط 12 اصلاح شد
     r = requests.get(url, timeout=10)
     r.raise_for_status()
     return [s["symbol"] for s in r.json()["data"]]
