@@ -1,29 +1,71 @@
 import os
 import requests
-from telegram import Bot
 from datetime import datetime
+from telegram import Bot
 
-BASE_URL = "https://api.toobit.com"
+BASE_URL = "https://fapi.binance.com"
 
-TELEGRAM_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
 
+def send_message(text):
+    if not BOT_TOKEN or not CHAT_ID:
+        print("Telegram Secrets not found")
+        return
+
+    bot = Bot(token=BOT_TOKEN)
+    bot.send_message(chat_id=CHAT_ID, text=text)
+
+
 def get_symbols():
-    url = BASE_URL + "/api/v1/futures/public/symbols"   # ← خط 12 اصلاح شد
-    r = requests.get(url, timeout=10)
+
+    url = BASE_URL + "/fapi/v1/exchangeInfo"
+
+    r = requests.get(url, timeout=20)
     r.raise_for_status()
-    return [s["symbol"] for s in r.json()["data"]]
+
+    data = r.json()
+
+    symbols = []
+
+    for s in data["symbols"]:
+
+        if (
+            s["contractType"] == "PERPETUAL"
+            and s["quoteAsset"] == "USDT"
+            and s["status"] == "TRADING"
+        ):
+
+            symbols.append(s["symbol"])
+
+    return symbols
 
 
 def get_daily_candles(symbol):
-    url = BASE_URL + f"/api/v1/futures/klines?symbol={symbol}&interval=1d&limit=6"
-    r = requests.get(url, timeout=10)
+
+    url = (
+        BASE_URL
+        + "/fapi/v1/klines"
+    )
+
+    params = {
+        "symbol": symbol,
+        "interval": "1d",
+        "limit": 10,
+    }
+
+    r = requests.get(
+        url,
+        params=params,
+        timeout=20
+    )
+
     r.raise_for_status()
-    return r.json()["data"]
 
+    return r.json()
+    def check_pattern(candles):
 
-def check_pattern(candles):
     if len(candles) < 6:
         return False
 
@@ -40,83 +82,151 @@ def check_pattern(candles):
     last_low = float(last[3])
     last_close = float(last[4])
 
-    body_prev = abs(prev_close - prev_open)
+    # ---------- کندل اول ----------
 
-    avg_body = sum(
-        abs(float(c[4]) - float(c[1]))
-        for c in candles[-6:-2]
-    ) / 4
+    total_range = prev_high - prev_low
 
-    cond1 = body_prev > avg_body
+    if total_range <= 0:
+        return False
+
+    range_percent = ((prev_high - prev_low) / prev_open) * 100
+
+    if range_percent < 10:
+        return False
+
+    body = abs(prev_close - prev_open)
+
+    body_ratio = body / total_range
+
+    if body_ratio < 0.84:
+        return False
 
     upper_shadow = prev_high - max(prev_open, prev_close)
     lower_shadow = min(prev_open, prev_close) - prev_low
 
-    if max(upper_shadow, lower_shadow) == 0:
-        cond2 = False
-    else:
-        cond2 = abs(upper_shadow - lower_shadow) <= max(
-            upper_shadow,
-            lower_shadow
-        ) * 0.10
+    if max(upper_shadow, lower_shadow) > 0:
 
-    body_last = abs(last_close - last_open)
-    cond3 = body_last <= (last_high - last_low) * 0.10
+        diff = abs(upper_shadow - lower_shadow)
+
+        if diff > max(upper_shadow, lower_shadow) * 0.01:
+            return False
+
+    # ---------- کندل دوم ----------
+
+    total_range2 = last_high - last_low
+
+    if total_range2 <= 0:
+        return False
+
+    body2 = abs(last_close - last_open)
+
+    body2_percent = (body2 / last_open) * 100
+
+    if body2_percent < 1.5:
+        return False
+
+    body2_ratio = body2 / total_range2
+
+    if body2_ratio < 0.20 or body2_ratio > 0.30:
+        return False
+
+    upper2 = last_high - max(last_open, last_close)
+    lower2 = min(last_open, last_close) - last_low
 
     if prev_close > prev_open:
 
-        cond4 = last_close < last_open
-        cond5 = (
-            last_open < prev_high
-            and last_close < prev_high
-        )
-        cond6 = last_high > prev_high
+        if last_close >= last_open:
+            return False
+
+        if upper2 <= lower2:
+            return False
+
+        if last_high <= prev_high:
+            return False
 
     else:
 
-        cond4 = last_close > last_open
-        cond5 = (
-            last_open > prev_low
-            and last_close > prev_low
-        )
-        cond6 = last_low < prev_low
+        if last_close <= last_open:
+            return False
 
-    return (
-        cond1
-        and cond2
-        and cond3
-        and cond4
-        and cond5
-        and cond6
-    )
+        if lower2 <= upper2:
+            return False
 
+        if last_low >= prev_low:
+            return False
 
-def send_message(text):
-    bot = Bot(token=TELEGRAM_TOKEN)
-    bot.send_message(chat_id=CHAT_ID, text=text)
+    return True
+    def scan():
 
-
-def scan():
     symbols = get_symbols()
 
+    print(f"Scanning {len(symbols)} USDT Futures symbols...")
+
     for symbol in symbols:
+
         try:
+
             candles = get_daily_candles(symbol)
 
             if check_pattern(candles):
-                ts = datetime.fromtimestamp(
-                    int(candles[-1][0]) / 1000
+
+                candle = candles[-1]
+
+                signal_time = datetime.utcfromtimestamp(
+                    candle[0] / 1000
+                ).strftime("%Y-%m-%d")
+
+                message = (
+                    "✅ CRT Pattern Found\n\n"
+                    f"Pair : {symbol}\n"
+                    f"Time : {signal_time}\n"
+                    "Market : Binance Futures USDT"
                 )
 
-                send_message(
-                    f"✅ CRT پیدا شد\n\n"
-                    f"نماد: {symbol}\n"
-                    f"تاریخ: {ts.strftime('%Y-%m-%d')}"
-                )
+                print(message)
+
+                send_message(message)
 
         except Exception as e:
-            print(symbol, e)
+
+            print(f"{symbol} -> {e}")
 
 
 if __name__ == "__main__":
+
+    print("=================================")
+    print(" Binance CRT Scanner Started")
+    print("=================================")
+
     scan()
+
+    print("Finished.")
+        # ---------- بدنه دوجی داخل شادوی کندل اول ----------
+
+    if prev_close > prev_open:
+
+        # بدنه دوجی باید داخل شادوی بالای کندل اول باشد
+        shadow_start = max(prev_open, prev_close)
+        shadow_end = prev_high
+
+        if not (
+            last_open >= shadow_start
+            and last_open <= shadow_end
+            and last_close >= shadow_start
+            and last_close <= shadow_end
+        ):
+            return False
+
+    else:
+
+        # بدنه دوجی باید داخل شادوی پایین کندل اول باشد
+        shadow_start = prev_low
+        shadow_end = min(prev_open, prev_close)
+
+        if not (
+            last_open >= shadow_start
+            and last_open <= shadow_end
+            and last_close >= shadow_start
+            and last_close <= shadow_end
+        ):
+            return False
